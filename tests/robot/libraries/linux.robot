@@ -6,6 +6,7 @@ ${interface_timeout}=     15s
 ${PINGSERVER_UDP}=        nc -uklp
 ${PINGSERVER_TCP}=        nc -klp
 ${UDPPING}=               nc -uzv
+${UDPPING_OPEN_PORT}=     nc -uz
 ${TCPPING}=               nc -zv
 
 
@@ -105,15 +106,23 @@ linux: UDPPing
     [Arguments]        ${node}    ${ip}     ${port}
     #${out}=            Execute In Container    ${node}    ${UDPPING} ${ip} ${port}
     #${out}=            Write To Container Until Prompt    ${node}    ${UDPPING} ${ip} ${port}
-    ${out}=            Write Command to Container    ${node}    ${UDPPING} ${ip} ${port}
+    ${out}=            Write Command to Container    ${node}    ${UDPPING} ${ip} ${port}  delay=10
     Should Contain     ${out}    Connection to ${ip} ${port} port [udp/*] succeeded!
+    Should Not Contain    ${out}    Connection refused
+
+linux: UDPPing Port Open
+    [Arguments]        ${node}    ${ip}     ${port}
+    #${out}=            Execute In Container    ${node}    ${UDPPING} ${ip} ${port}
+    #${out}=            Write To Container Until Prompt    ${node}    ${UDPPING} ${ip} ${port}
+    ${out}=            Write Command to Container    ${node}    docker exec -it ${node} ${UDPPING} ${ip} ${port}  delay=10
+    Should Contain     ${out}    (UNKNOWN) [${ip}] ${port} (?) open
     Should Not Contain    ${out}    Connection refused
 
 linux: UDPPingNot
     [Arguments]        ${node}    ${ip}     ${port}
     #${out}=            Execute In Container    ${node}    ${UDPPING} ${ip} ${port}
     #${out}=            Write To Container Until Prompt    ${node}    ${UDPPING} ${ip} ${port}
-    ${out}=            Write Command to Container    ${node}    ${UDPPING} ${ip} ${port}
+    ${out}=            Write Command to Container    ${node}    ${UDPPING} ${ip} ${port}  delay=5
     Should Not Contain     ${out}    Connection to ${ip} ${port} port [udp/*] succeeded!
     Should Contain    ${out}    Connection refused
 

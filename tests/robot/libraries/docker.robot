@@ -125,7 +125,8 @@ Add Agent VPP Node With Physical Int
     [Arguments]    ${node}    ${int_nums}    ${vswitch}=${FALSE}
     ${add_params}=    Set Variable If    ${vswitch}    --pid=host -v "/var/run/docker.sock:/var/run/docker.sock"    ${EMPTY}
     Open SSH Connection    ${node}    ${DOCKER_HOST_IP}    ${DOCKER_HOST_USER}    ${DOCKER_HOST_PSWD}
-    Execute On Machine     ${node}    ${DOCKER_COMMAND} create -e MICROSERVICE_LABEL=${node} -e KAFKA_CONFIG=disabled --sysctl net.ipv6.conf.all.disable_ipv6=0 -it --privileged -v "${DOCKER_SOCKET_FOLDER}:${${node}_SOCKET_FOLDER}" -p ${${node}_VPP_HOST_PORT}:${${node}_VPP_PORT} -p ${${node}_REST_API_HOST_PORT}:${${node}_REST_API_PORT} --name ${node} ${add_params}  ${${node}_DOCKER_IMAGE}
+    #Execute On Machine     ${node}    ${DOCKER_COMMAND} create -e MICROSERVICE_LABEL=${node} -e KAFKA_CONFIG=disabled --sysctl net.ipv6.conf.all.disable_ipv6=0 -it --privileged -v "${DOCKER_SOCKET_FOLDER}:${${node}_SOCKET_FOLDER}" -p ${${node}_VPP_HOST_PORT}:${${node}_VPP_PORT} -p ${${node}_REST_API_HOST_PORT}:${${node}_REST_API_PORT} --name ${node} ${add_params}  ${${node}_DOCKER_IMAGE} bash
+    Execute On Machine     ${node}    ${DOCKER_COMMAND} create -e MICROSERVICE_LABEL=${node} -e KAFKA_CONFIG=disabled -e VPP_STATUS_PUBLISHERS=etcd -e INITIAL_LOGLVL=debug --sysctl net.ipv6.conf.all.disable_ipv6=0 -it --privileged -v "${VPP_AGENT_HOST_MEMIF_SOCKET_FOLDER}:${${node}_MEMIF_SOCKET_FOLDER}" -v "${DOCKER_SOCKET_FOLDER}:${${node}_SOCKET_FOLDER}" -p ${${node}_VPP_HOST_PORT}:${${node}_VPP_PORT} -p ${${node}_REST_API_HOST_PORT}:${${node}_REST_API_PORT} --name ${node} ${add_params} ${${node}_DOCKER_IMAGE}
     ${devs}=               Set Variable    ${EMPTY}
     :FOR    ${int_num}    IN    @{int_nums}
     \    ${devs}=    Set Variable    ${devs}${\n}dev ${DOCKER_PHYSICAL_INT_${int_num}}

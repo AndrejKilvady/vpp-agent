@@ -12,6 +12,11 @@ Configure Environment 1
     Execute In Container    agent_vpp_1    ls -al
     Execute On Machine    docker    ${DOCKER_COMMAND} images
     Execute On Machine    docker    ${DOCKER_COMMAND} ps -as
+    Execute In Container    agent_vpp_1    pip install aenum
+    Execute In Container    agent_vpp_2    pip install aenum
+    #Execute On Machine    docker    pip install aenum
+    papi_term: Check PAPI Terminal    agent_vpp_1
+    papi_term: Check PAPI Terminal    agent_vpp_2
 
 Configure Environment 2
     [Arguments]        ${sfc_conf}

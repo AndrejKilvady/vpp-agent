@@ -19,7 +19,7 @@ ${VARIABLES}=       common
 ${ENV}=             common
 ${NAME_LOOP1}=      vpp1_loop1
 ${NAME_LOOP2}=      vpp1_loop2
-${MAC_LOOP1}=       12:21:21:11:11:11
+${MAC_LOOP1}=       12:91:91:11:11:11
 ${MAC_LOOP1_2}=     22:21:21:11:11:11
 ${MAC_LOOP2}=       32:21:21:11:11:11
 ${IP_LOOP1}=        20.20.1.1
@@ -44,7 +44,8 @@ Add Loopback1 Interface
 
 Check Loopback1 Is Created
     Wait Until Keyword Succeeds   ${WAIT_TIMEOUT}   ${SYNC_SLEEP}    vpp_term: Interface Is Created    node=agent_vpp_1    mac=${MAC_LOOP1}
-    Wait Until Keyword Succeeds   ${WAIT_TIMEOUT}   ${SYNC_SLEEP}    vat_term: Check Loopback Interface State    agent_vpp_1    ${NAME_LOOP1}    enabled=1     mac=${MAC_LOOP1}    mtu=${MTU}  ipv4=${IP_LOOP1}/${PREFIX}
+    #sleep  360s
+    Wait Until Keyword Succeeds   ${WAIT_TIMEOUT}   ${SYNC_SLEEP}    papi_term: Check Loopback Interface State    agent_vpp_1    ${NAME_LOOP1}    enabled=1     mac=${MAC_LOOP1}    mtu=${MTU}  ipv4=${IP_LOOP1}/${PREFIX}
 
 Add Loopback2 Interface
     vpp_term: Interface Not Exists  node=agent_vpp_1    mac=${MAC_LOOP2}
@@ -52,7 +53,7 @@ Add Loopback2 Interface
 
 Check Loopback2 Is Created
     Wait Until Keyword Succeeds   ${WAIT_TIMEOUT}   ${SYNC_SLEEP}    vpp_term: Interface Is Created    node=agent_vpp_1    mac=${MAC_LOOP2}
-    Wait Until Keyword Succeeds   ${WAIT_TIMEOUT}   ${SYNC_SLEEP}    vat_term: Check Loopback Interface State    agent_vpp_1    ${NAME_LOOP2}    enabled=1     mac=${MAC_LOOP2}    mtu=${MTU}    ipv4=${IP_LOOP2}/${PREFIX}
+    Wait Until Keyword Succeeds   ${WAIT_TIMEOUT}   ${SYNC_SLEEP}    papi_term: Check Loopback Interface State    agent_vpp_1    ${NAME_LOOP2}    enabled=1     mac=${MAC_LOOP2}    mtu=${MTU}    ipv4=${IP_LOOP2}/${PREFIX}
 
 Check Loopback1 Is Still Configured
     vat_term: Check Loopback Interface State    agent_vpp_1    ${NAME_LOOP1}    enabled=1     mac=${MAC_LOOP1}    mtu=${MTU}         ipv4=${IP_LOOP1}/${PREFIX}
@@ -62,17 +63,17 @@ Update Loopback1
 
     Wait Until Keyword Succeeds   ${WAIT_TIMEOUT}   ${SYNC_SLEEP}    vpp_term: Interface Is Deleted    node=agent_vpp_1    mac=${MAC_LOOP1}
     Wait Until Keyword Succeeds   ${WAIT_TIMEOUT}   ${SYNC_SLEEP}    vpp_term: Interface Is Created    node=agent_vpp_1    mac=${MAC_LOOP1_2}
-    Wait Until Keyword Succeeds   ${WAIT_TIMEOUT}   ${SYNC_SLEEP}    vat_term: Check Loopback Interface State    agent_vpp_1    ${NAME_LOOP1}    enabled=1     mac=${MAC_LOOP1_2}    mtu=${MTU}    ipv4=${IP_LOOP1_2}/${PREFIX}
+    Wait Until Keyword Succeeds   ${WAIT_TIMEOUT}   ${SYNC_SLEEP}    papi_term: Check Loopback Interface State    agent_vpp_1    ${NAME_LOOP1}    enabled=1     mac=${MAC_LOOP1_2}    mtu=${MTU}    ipv4=${IP_LOOP1_2}/${PREFIX}
 
 Check Loopback2 Is Not Changed
-    Wait Until Keyword Succeeds   ${WAIT_TIMEOUT}   ${SYNC_SLEEP}    vat_term: Check Loopback Interface State    agent_vpp_1    ${NAME_LOOP2}    enabled=1     mac=${MAC_LOOP2}    mtu=${MTU}         ipv4=${IP_LOOP2}/${PREFIX}
+    Wait Until Keyword Succeeds   ${WAIT_TIMEOUT}   ${SYNC_SLEEP}    papi_term: Check Loopback Interface State    agent_vpp_1    ${NAME_LOOP2}    enabled=1     mac=${MAC_LOOP2}    mtu=${MTU}         ipv4=${IP_LOOP2}/${PREFIX}
 
 Delete Loopback1_2 Interface
     Delete VPP Interface    node=agent_vpp_1    name=${NAME_LOOP1}
     Wait Until Keyword Succeeds   ${WAIT_TIMEOUT}   ${SYNC_SLEEP}    vpp_term: Interface Is Deleted    node=agent_vpp_1    mac=${MAC_LOOP1_2}
 
 Check Loopback2 Interface Is Still Configured
-    Wait Until Keyword Succeeds   ${WAIT_TIMEOUT}   ${SYNC_SLEEP}    vat_term: Check Loopback Interface State    agent_vpp_1    ${NAME_LOOP2}    enabled=1     mac=${MAC_LOOP2}    mtu=${MTU}         ipv4=${IP_LOOP2}/${PREFIX}
+    Wait Until Keyword Succeeds   ${WAIT_TIMEOUT}   ${SYNC_SLEEP}    papi_term: Check Loopback Interface State    agent_vpp_1    ${NAME_LOOP2}    enabled=1     mac=${MAC_LOOP2}    mtu=${MTU}         ipv4=${IP_LOOP2}/${PREFIX}
 
 Show Interfaces And Other Objects After Setup
     vpp_term: Show Interfaces    agent_vpp_1

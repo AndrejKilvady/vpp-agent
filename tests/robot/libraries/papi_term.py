@@ -2,6 +2,9 @@ import json
 import re
 import binascii
 import ast
+from socket import inet_ntoa
+#from ipaddress import IPv6Address
+
 from robot.api import logger
 
 # input - json output from vxlan_tunnel_dump, src ip, dst ip, vni
@@ -66,59 +69,179 @@ def Get_Interface_Index(out, name):
             index = detail['sw_interface_details']['sw_if_index']
     return index
 
+# input - output from sh int, interface name
+# output - index
+def Vpp_Get_Interface_Index(out, name):
+    swifindex = str('sw_if_index')
+    out = replace_rrn(out)
+    out = replace_spaces_to_space(out)
+    data =  out[out.rfind(name)-110:out.rfind(name)-50]
+    data = data.replace("=", ' ')
+    data = data.replace(",", '')
+    print data
+    data = data[data.find(swifindex):data.find(swifindex)+15]
+    print data
+    index = -1
+    numbers = [int(s) for s in data.split() if s.isdigit()]
+    print data
+    print numbers
+    if len(numbers) > 0:
+       index = numbers[0]
+    else:
+       print "Index Not Found"
+    return index
+
 def Process_Reply_2(out):
     #data = json.dumps(out)
     #print data
     #out = out.replace("'", '"')
     out = out.replace(">>>", '')
+    #out = out.replace("]", '')
+    #out = out.replace("[", '')
+    print out
+    out = out.replace("\\x00", '')
     out = replace_rrn(out)
     out = replace_rn(out)
+    print out
+    out = replace_spaces_to_space(out)
+    # reply_converted = _convert_reply(out)
+    # print reply_converted
 
-    data = json.loads(out.replace("\'", "\""))
-    for detail in data:
-        detail['sw_interface_details']['interface_name'] = detail['sw_interface_details']['interface_name'].decode(
-            "hex").replace("\x00", "")
-        detail['sw_interface_details']['tag'] = detail['sw_interface_details']['tag'].decode("hex").replace("\x00", "")
-        detail['sw_interface_details']['l2_address'] = ":".join("{:02x}".format(ord(c)) for c in detail['sw_interface_details']['l2_address'].decode("hex").replace("\x00", ""))
+    # data = json.loads(out.replace("\'", "\""))
+    # #data = json.loads(out)
+    # #data = reply_converted
 
-    print data
-    return data
+    # for detail in out:
+    #     detail['sw_interface_details'] = detail['sw_interface_details']['interface_name'].decode(
+    #         "hex").replace("\x00", "")
+    #     detail['sw_interface_details']['tag'] = detail['sw_interface_details']['tag'].decode("hex").replace("\x00", "")
+    #     detail['sw_interface_details']['l2_address'] = ":".join("{:02x}".format(ord(c)) for c in detail['sw_interface_details']['l2_address'].decode("hex").replace("\x00", ""))
+
+    # for detail in data:
+    #     detail['sw_interface_details']['interface_name'] = detail['sw_interface_details']['interface_name'].decode(
+    #         "hex").replace("\x00", "")
+    #     detail['sw_interface_details']['tag'] = detail['sw_interface_details']['tag'].decode("hex").replace("\x00", "")
+    #     detail['sw_interface_details']['l2_address'] = ":".join("{:02x}".format(ord(c)) for c in detail['sw_interface_details']['l2_address'].decode("hex").replace("\x00", ""))
+    #
+    # print data
+    return out
+
+def _convert_reply(api_r):
+    """Process API reply / a part of API reply for smooth converting to
+    JSON string.
+    It is used only with 'request' and 'dump' methods.
+    Apply binascii.hexlify() method for string values.
+    TODO: Implement complex solution to process of replies.
+    :param api_r: API reply.
+    :type api_r: Vpp_serializer reply object (named tuple)
+    :returns: Processed API reply / a part of API reply.
+    :rtype: dict
+    """
+    unwanted_fields = ['count', 'index', 'context']
+
+    reply_dict = dict()
+    reply_key = repr(api_r).split('(')[0]
+    reply_value = dict()
+    for item in dir(api_r):
+        if not item.startswith('_') and item not in unwanted_fields:
+            attr_value = getattr(api_r, item)
+            if isinstance(attr_value, list) or isinstance(attr_value, dict):
+                value = attr_value
+            elif hasattr(attr_value, '__int__'):
+                value = int(attr_value)
+            elif hasattr(attr_value, '__str__'):
+                value = binascii.hexlify(str(attr_value))
+            # Next handles parameters not supporting preferred integer or string
+            # representation to get it logged
+            elif hasattr(attr_value, '__repr__'):
+                value = repr(attr_value)
+            else:
+                value = attr_value
+            reply_value[item] = value
+    reply_dict[reply_key] = reply_value
+    return reply_dict
+
 
 # input - json output from sw_interface_dump, index
 # output - whole interface state
-def Papi_Get_Interface_State2(out, index):
+def Papi_Get_Interface_State(out, name):
     #out =  out[out.find('['):out.rfind(']')+1]
     #data = json.loads(out)
     state = -1
-    for detail in out:
-        if detail['sw_interface_details']['sw_if_index']  == index:
-            state = detail['sw_interface_details']['admin_up_down']
+    data = out[out.rfind(name):out.rfind(name)+30]
+    data = data.replace("=", ' ')
+    data = data.replace(",", '')
+    print data
+    data = data[data.find('admin_up_down'):data.find('admin_up_down') + 15]
+    print data
+    numbers = [int(s) for s in data.split() if s.isdigit()]
+    print data
+    print numbers
+    if len(numbers) > 0:
+        state = numbers[0]
+    else:
+        print "State Not Found"
+    # for detail in out:
+    #     if detail['sw_interface_details']['sw_if_index']  == index:
+    #         state = detail['sw_interface_details']['admin_up_down']
     return state
 
 # input - json output from sw_interface_dump, index
 # output - whole interface state
-def Papi_Get_Mac2(out, index):
+def Papi_Get_Mac(out, name):
     #out =  out[out.find('['):out.rfind(']')+1]
     #data = json.loads(out)
     mac = ''
-    for detail in out:
-        if detail['sw_interface_details']['sw_if_index']  == index:
-            mac = detail['sw_interface_details']['l2_address']   #.decode("hex")
-            #mac = ":".join("{:02x}".format(ord(c)) for c in detail['sw_interface_details']['l2_address'])
-            print mac
+
+    data = out[out.rfind(name) - 55:out.rfind(name) - 15]
+    data = data.replace("=", ' ')
+    data = data.replace(",", '')
+    #data = data.replace("\'\\'", '\\')
+    print data
+    data = data[data.find('l2_address')+10:data.find('l2_address') + 38]
+    print data
+    data = data[data.find('\\'):data.find('\' ')]
+    print data
+    mac2 = mac_ntop2("\x12\x91\x91\x11\x11\x11")
+    print mac2
+    mac = mac_ntop2('\"'+data+'\"')
     print mac
+    if len(mac) > 0:
+        print mac
+    else:
+        print "Mac address Not Found"
+
+
+    # for detail in out:
+    #     if detail['sw_interface_details']['sw_if_index']  == index:
+    #         mac = detail['sw_interface_details']['l2_address']   #.decode("hex")
+    #         #mac = ":".join("{:02x}".format(ord(c)) for c in detail['sw_interface_details']['l2_address'])
+    #         print mac
     return mac
 
 # input - json output from sw_interface_dump, index
 # output - whole interface state
-def Papi_Get_Mtu2(out, index):
+def Papi_Get_Mtu(out, name):
     #out =  out[out.find('['):out.rfind(']')+1]
     #data = json.loads(out)
     mtu = ''
-    for detail in out:
-        if detail['sw_interface_details']['sw_if_index']  == index:
-            mtu = detail['sw_interface_details']['mtu']
-            mtu = mtu[0]
+    data = out[out.rfind(name)+50:out.rfind(name)+100]
+    data = data.replace("=", ' ')
+    data = data.replace(",", '')
+    print data
+    data = data[data.find('link_mtu'):data.find('link_mtu') + 15]
+    print data
+    numbers = [int(s) for s in data.split() if s.isdigit()]
+    print data
+    print numbers
+    if len(numbers) > 0:
+        mtu = numbers[0]
+    else:
+        print "State Not Found"
+    # for detail in out:
+    #     if detail['sw_interface_details']['sw_if_index']  == index:
+    #         mtu = detail['sw_interface_details']['mtu']
+    #         mtu = mtu[0]
     return mtu
 
 # input - json output from sw_interface_dump, index
@@ -132,7 +255,7 @@ def Get_Interface_State(out, index):
             state = iface
     return state
 
-def mac_ntop(binary):
+def mac_ntop2(binary):
     '''Convert MAC address as binary to text'''
     x = b':'.join(binascii.hexlify(binary)[i:i + 2]
                   for i in range(0, 12, 2))
@@ -225,7 +348,7 @@ def Convert_ETCD_Dump_To_JSON(dump):
             else:
                 if line == "null":
                     line = '{"error":"null"}'
-                data += line 
+                data += line
     if not firstline:
         etcd_json += '{"key":"'+key+'","node":"'+node+'","name":"'+name+'","type":"'+type+'","data":'+data+'}'
     etcd_json += ']'

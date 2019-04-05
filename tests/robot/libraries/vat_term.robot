@@ -1,5 +1,4 @@
 [Documentation]     Keywords for working with VAT terminal
-
 *** Settings ***
 Library      vat_term.py
 
@@ -10,12 +9,17 @@ ${bd_timeout}=            15s
 *** Keywords ***
 
 vat_term: Check VAT Terminal
-    [Arguments]        ${node}
-    [Documentation]    Check VAT terminal on node ${node}
-    ${out}=            Write To Machine    ${node}_vat    ${DOCKER_COMMAND} exec -it ${node} /bin/bash
+    [Arguments]           ${node}
+    [Documentation]       Check VAT terminal on node ${node}
+    ${out}=               Write To Machine    ${node}_vat    ${DOCKER_COMMAND} exec -it ${node} /bin/bash
+    SSHLibrary.Put_file   ${CURDIR}/vpp_api.py	    /tmp/
+    Execute On Machine     ${node}_vat    ${DOCKER_COMMAND} cp /tmp/vpp_api.py ${node}:/
     ${command}=        Set Variable        ${VAT_START_COMMAND}
     ${out}=            Write To Machine    ${node}_vat    ${command}
     Should Contain     ${out}              ${${node}_VPP_VAT_PROMPT}
+    ${out}=            Write To Machine Until String    ${node}_vat    from vpp_papi import VPP    ${${node}_VPP_VAT_PROMPT}    delay=${SSH_READ_DELAY}s
+    ${out}=            Write To Machine Until String    ${node}_vat    vapi = VPP()    ${${node}_VPP_VAT_PROMPT}    delay=${SSH_READ_DELAY}s
+    ${out}=            Write To Machine Until String    ${node}_vat    r = vapi.connect('papi-example')    ${${node}_VPP_VAT_PROMPT}    delay=${SSH_READ_DELAY}s
     [Return]           ${out}
 
 vat_term: Open VAT Terminal
@@ -32,21 +36,17 @@ vat_term: Exit VAT Terminal
 
 vat_term: Issue Command
     [Arguments]        ${node}     ${command}    ${delay}=${SSH_READ_DELAY}s
-    ${failed_it}=     Create List
-    :FOR    ${it_num}    IN RANGE    1    6
-    \    ${result}    ${out}=    Run Keyword And Ignore Error    Write To Machine Until String    ${node}_vat    ${command}    ${${node}_VPP_VAT_PROMPT}    delay=${delay}
-    \    Run Keyword If      '${result}'=='FAIL'      Append To List    ${failed_it}    ${it_num}
-    \    Run Keyword If      '${result}'=='FAIL'      Log  Warning, no match found #vat console output!	WARN
-    \    Exit For Loop If    '${result}'=='PASS'
-    Run Keyword And Ignore Error  Should Be Empty  ${failed_it}  msg='Fail in this checks ${failed_it}'
-#    ${out}=            Write To Machine Until String    ${node}_vat    ${command}    ${${node}_VPP_VAT_PROMPT}    delay=${delay}
-##    Should Contain     ${out}             ${${node}_VPP_VAT_PROMPT}
+    #${out}=            Write To Machine Until String    ${node}_vat    ret = raw_input()    ${${node}_VPP_VAT_PROMPT}    delay=${delay}
+    ${out}=            Write To Machine Until String    ${node}_vat    ret = vapi.${command}()    ${${node}_VPP_VAT_PROMPT}    delay=${delay}
+    ${out}=            Write To Machine Until String    ${node}_vat    print(ret)    ${${node}_VPP_VAT_PROMPT}    delay=${delay}
+    Should Contain     ${out}             ${${node}_VPP_VAT_PROMPT}
     [Return]           ${out}
 
 vat_term: Interfaces Dump
     [Arguments]        ${node}
     [Documentation]    Executing command sw_interface_dump
     ${out}=            vat_term: Issue Command  ${node}  sw_interface_dump
+    ${out}=            Process_Reply_2    ${out}
     [Return]           ${out}
 
 vat_term: Bridge Domain Dump
@@ -66,7 +66,7 @@ vat_term: IP FIB Dump
 vat_term: VXLan Tunnel Dump
     [Arguments]        ${node}    ${args}=${EMPTY}
     [Documentation]    Executing command vxlan_tunnel_dump
-    ${out}=            vat_term: Issue Command  ${node}  vxlan_tunnel_dump ${args}
+    ${out}=            vat_term: Issue Command  ${node}  vxlan_gbp_tunnel_dump ${args}
     ${out}=            Evaluate    """${out}"""["""${out}""".find('['):"""${out}""".rfind(']')+1]
     [Return]           ${out}
 
@@ -113,15 +113,15 @@ vat_term: Check Afpacket Interface State
     ${internal_name}=    Get Interface Internal Name    ${node}    ${name}
     ${internal_index}=   vat_term: Get Interface Index    ${node}    ${internal_name}
     ${interfaces}=       vat_term: Interfaces Dump    ${node}
-    ${int_state}=        Get Interface State    ${interfaces}    ${internal_index}
+    ${int_state}=        Papi Get Interface State2    ${interfaces}    ${internal_index}
     ${ipv4_list}=        vpp_term: Get Interface IPs    ${node}    ${internal_name}
     ${config}=           Get VPP Interface Config As Json    ${node}    ${name}
     ${host_int}=         Set Variable    ${config["afpacket"]["host_if_name"]}
     #Should Contain       ${internal_name}    ${host_int}
-    ${enabled}=          Set Variable    ${int_state["admin_up_down"]}
-    ${mtu}=              Set Variable    ${int_state["mtu"]}
-    ${dec_mac}=          Set Variable    ${int_state["l2_address"]}
-    ${mac}=              Convert Dec MAC To Hex    ${dec_mac}
+    ${enabled}=          Set Variable    ${int_state}   #${int_state["admin_up_down"]}
+    ${mtu}=              Papi_Get_Mtu    ${interfaces}    ${internal_index}    #Set Variable    ${int_state["mtu"]}
+    #${dec_mac}=          Set Variable    ${int_state["l2_address"]}
+    ${mac}=              Papi_Get_Mac    ${interfaces}    ${internal_index}    #Convert Dec MAC To Hex    ${dec_mac}
     ${actual_state}=     Create List    enabled=${enabled}    mtu=${mtu}    mac=${mac}
     :FOR    ${ip}    IN    @{ipv4_list}
     \    Append To List    ${actual_state}    ipv4=${ip}
@@ -150,13 +150,13 @@ vat_term: Check Loopback Interface State
     ${internal_name}=    Get Interface Internal Name    ${node}    ${name}
     ${internal_index}=   vat_term: Get Interface Index    ${node}    ${internal_name}
     ${interfaces}=       vat_term: Interfaces Dump    ${node}
-    ${int_state}=        Get Interface State    ${interfaces}    ${internal_index}
+    ${int_state}=        Papi Get Interface State    ${interfaces}    ${internal_index}
     ${ipv4_list}=        vpp_term: Get Interface IPs    ${node}    ${internal_name}
     ${ipv6_list}=        vpp_term: Get Interface IP6 IPs    ${node}    ${internal_name}
-    ${enabled}=          Set Variable    ${int_state["admin_up_down"]}
-    ${mtu}=              Set Variable    ${int_state["mtu"]}
-    ${dec_mac}=          Set Variable    ${int_state["l2_address"]}
-    ${mac}=              Convert Dec MAC To Hex    ${dec_mac}
+    ${enabled}=          Set Variable    ${int_state}   #${int_state["admin_up_down"]}
+    ${mtu}=              Papi_Get_Mtu2    ${interfaces}    ${internal_index}    #Set Variable    ${int_state["mtu"]}
+    #${dec_mac}=          Set Variable    ${int_state["l2_address"]}
+    ${mac}=              Papi_Get_Mac    ${interfaces}    ${internal_index}    #Convert Dec MAC To Hex    ${dec_mac}
     ${actual_state}=     Create List    enabled=${enabled}    mtu=${mtu}    mac=${mac}
     :FOR    ${ip}    IN    @{ipv4_list}
     \    Append To List    ${actual_state}    ipv4=${ip}
